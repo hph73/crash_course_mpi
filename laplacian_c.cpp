@@ -16,35 +16,6 @@ double Temperature_last[ROWS+2][COLS+2]; // temperature grid from last iteration
 void initialize();
 void track_progress(int iter);
 
-
-void initialize() {
-    // initialize temperature
-    int i, j;
-    for (i = 0; i <= ROWS+1; i++) {
-        for (j = 0; j <= COLS; j++) {
-            Temperature_last[i][j] = 0.0;
-        }
-    }
-
-    // set boundary conditions; BC nerver changes in run
-    for (i = 0; i <= ROWS+1; i++) {
-        Temperature_last[i][0] = 0.0;
-        Temperature_last[i][COLS+1] = 100.0 * i / ROWS;
-    }
-    for (j = 0; j <= COLS+1; j++) {
-        Temperature_last[0][j] = 0.0;
-        Temperature_last[ROWS+1][j] = 100.0 * j / COLS;
-    }
-}
-
-void track_progress(int iteration) {
-    int i;
-    std::cout << "-- Iteration: " << iteration  << "--" << std::endl;
-    for (i = ROWS-5; i <= ROWS; i++) {
-        std::cout << "Temp[i][i]=" << Temperature[i][i] << std::endl;
-    }
-}
-
 int main(int argc, char** argv) {
     int i, j;
     int max_iterations = 4000;;
@@ -71,5 +42,35 @@ int main(int argc, char** argv) {
         if ((iteration % 100) == 0) track_progress(iteration);
         iteration++;
     }
+    std::cout << "iteration at end: " << iteration << std::endl;
+}
 
+
+
+void initialize() {
+    // initialize temperature
+    int i, j;
+    for (i = 0; i <= ROWS+1; i++) {
+        for (j = 0; j <= COLS+1; j++) {
+            Temperature_last[i][j] = 0.0;
+        }
+    }
+
+    // set boundary conditions; BC nerver changes in run
+    for (i = 0; i <= ROWS+1; i++) {
+        Temperature_last[i][0] = 0.0;
+        Temperature_last[i][COLS+1] = 100.0 * i / ROWS;
+    }
+    for (j = 0; j <= COLS+1; j++) {
+        Temperature_last[0][j] = 0.0;
+        Temperature_last[ROWS+1][j] = 100.0 * j / COLS;
+    }
+}
+
+void track_progress(int iteration) {
+    int i;
+    std::cout << "-- Iteration: " << iteration  << " --" << std::endl;
+    for (i = ROWS-5; i <= ROWS; i++) {
+        std::cout << "Temp[i][i]=" << Temperature[i][i] << std::endl;
+    }
 }
