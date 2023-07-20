@@ -56,6 +56,8 @@ int main(int argc, char** argv) {
         }
         // p0Cout << "Reducing..." << std::endl;
         MPI_Reduce(&mydt, &dt, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        // Broadcasting is important; otherwise other ranks will hang
+        MPI_Bcast(&dt, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         p0Cout << "dt=" << dt << std::endl;
 
         // p0Cout << "Sending and receiving..." << std::endl;
