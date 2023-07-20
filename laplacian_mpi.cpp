@@ -5,15 +5,16 @@
 // size of the plate
 #define COLS 1000
 #define ROWS 1000
-
+#define NR 250
+#define p0Cout if (my_PE_num == 0) std::cout
 // largest permitted change in temp
 #define MAX_TEMP_ERROR 0.01
 
-// double Temperature[ROWS+2][COLS+2]; // temperature grid
-// double Temperature_last[ROWS+2][COLS+2]; // temperature grid from last iteration
+double Temperature[NR+2][COLS+2]; // temperature grid
+double Temperature_last[NR+2][COLS+2]; // temperature grid from last iteration
 
 // help routines
-void initialize(double** Temperature_last, int Nr, int numprocs, int my_PE_num);
+void initialize(int numprocs, int my_PE_num);
 void track_progress(int iter);
 
 int main(int argc, char** argv) {
@@ -21,45 +22,69 @@ int main(int argc, char** argv) {
     int max_iterations = 4000;;
     int iteration = 1;
     double dt = 100;
+    double mydt;
     int numprocs, my_PE_num;
+    MPI_Status status;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_PE_num);
 
-    int Nr = ROWS / numprocs;
-    double Temperature[Nr+2][COLS+2]; // temperature grid
-    double Temperature_last[Nr+2][COLS+2]; // temperature grid from last iteration
+    // p0Cout << "Initializing..." << std::endl;
+    initialize(numprocs, my_PE_num);
+    // p0Cout << "numprocs=" << numprocs << std::endl;
+    // p0Cout << "my_PE_num=" << my_PE_num << std::endl;
 
-    initialize(Temperature_last, Nr, numprocs, my_PE_num);
     // do until error is minimal or until max steps
     while (dt > MAX_TEMP_ERROR && iteration <= max_iterations) {
-        for (i = 1; i <= ROWS; i++) {
+        p0Cout << "iteration=" << iteration << std::endl;
+        // p0Cout << "Averaging..." << std::endl;
+        for (i = 1; i <= NR; i++) {
             for (j = 1; j <= COLS; j++) {
                 Temperature[i][j] = 0.25 * (Temperature_last[i+1][j] + Temperature_last[i-1][j] + 
                 Temperature_last[i][j+1] + Temperature_last[i][j-1]);
             }
         }
 
-    //     dt = 0.0;
-    //     for (i = 1; i <= ROWS; i++) {
-    //         for (j = 1; j <= COLS; j++) {
-    //             dt = fmax(fabs(Temperature[i][j] - Temperature_last[i][j]), dt);
-    //             Temperature_last[i][j] = Temperature[i][j];
-    //         }
-    //     }
-    //     if ((iteration % 100) == 0) track_progress(iteration);
-    //     iteration++;
-    // }
-    // std::cout << "iteration at end: " << iteration << std::endl;
+        // p0Cout << "Calculating dt..." << std::endl;
+        mydt = 0.0;
+        for (i = 1; i <= NR; i++) {
+            for (j = 1; j <= COLS; j++) {
+                mydt = fmax(fabs(Temperature[i][j] - Temperature_last[i][j]), mydt);
+                Temperature_last[i][j] = Temperature[i][j];
+            }
+        }
+        // p0Cout << "Reducing..." << std::endl;
+        MPI_Reduce(&mydt, &dt, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+        p0Cout << "dt=" << dt << std::endl;
+
+        // p0Cout << "Sending and receiving..." << std::endl;
+        if (my_PE_num > 0) {
+            MPI_Send(Temperature[1], COLS+2, MPI_DOUBLE, my_PE_num-1, 10, MPI_COMM_WORLD);
+        }
+        if (my_PE_num < numprocs-1) {
+            MPI_Recv(Temperature_last[NR+1], COLS+2, MPI_DOUBLE, my_PE_num + 1, 10, MPI_COMM_WORLD, &status);
+        }
+        if (my_PE_num < numprocs-1) {
+            MPI_Send(Temperature[NR], COLS+2, MPI_DOUBLE, my_PE_num+1, 10, MPI_COMM_WORLD);
+        }
+        if (my_PE_num > 0) {
+            MPI_Recv(Temperature_last[0], COLS+2, MPI_DOUBLE, my_PE_num-1, 10, MPI_COMM_WORLD, &status);
+        }
+        // if (my_PE_num == 0 && (iteration % 100) == 0) track_progress(iteration);
+        iteration++;
+    }
+    p0Cout << "iteration at end: " << iteration << std::endl;
+
+    MPI_Finalize();
 }
 
 
 
-void initialize(double** Temperature_last, int Nr, int numprocs, int my_PE_num) {
+void initialize(int numprocs, int my_PE_num) {
     // initialize temperature
     int i, j;
-    for (i = 0; i <= Nr + 1; i++) {
+    for (i = 0; i <= NR + 1; i++) {
         for (j = 0; j <= COLS+1; j++) {
             Temperature_last[i][j] = 0.0;
         }
@@ -73,19 +98,19 @@ void initialize(double** Temperature_last, int Nr, int numprocs, int my_PE_num) 
     }
     if (my_PE_num == numprocs - 1) {
         for (j = 0; j <= COLS+1; j++) {
-            Temperature_last[Nr+1][j] = 100.0 * j / COLS;
+            Temperature_last[NR+1][j] = 100.0 * j / COLS;
         }
     }
-    for (i = 0; i <= Nr+1; i++) {
+    for (i = 0; i <= NR+1; i++) {
         Temperature_last[i][0] = 0.0;
-        Temperature_last[i][COLS+1] = 100.0 * (Nr * my_PE_num + i) / ROWS;
+        Temperature_last[i][COLS+1] = 100.0 * (NR * my_PE_num + i) / ROWS;
     }
 }
 
-// void track_progress(int iteration) {
-//     int i;
-//     std::cout << "-- Iteration: " << iteration  << " --" << std::endl;
-//     for (i = ROWS-5; i <= ROWS; i++) {
-//         std::cout << "Temp[i][i]=" << Temperature[i][i] << std::endl;
-//     }
-// }
+void track_progress(int iteration) {
+    int i;
+    std::cout << "-- Iteration: " << iteration  << " --" << std::endl;
+    for (i = ROWS-5; i <= ROWS; i++) {
+        std::cout << "Temp[i][i]=" << Temperature[i][i] << std::endl;
+    }
+}

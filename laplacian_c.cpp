@@ -39,7 +39,10 @@ int main(int argc, char** argv) {
                 Temperature_last[i][j] = Temperature[i][j];
             }
         }
-        if ((iteration % 100) == 0) track_progress(iteration);
+        // if ((iteration % 100) == 0) track_progress(iteration);
+        if (iteration <= 10) {
+            std::cout << "dt=" << dt << std::endl;
+        }
         iteration++;
     }
     std::cout << "iteration at end: " << iteration << std::endl;
